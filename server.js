@@ -6,7 +6,7 @@ const bodyParser = require('body-parser'); // Needed for receiving subscriptions
 const xml2js = require('xml2js');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(bodyParser.json());
