@@ -31,6 +31,8 @@
 </head>
 <body>
 
+<button onclick="subscribe()" style="background:red; width:100%; margin-bottom:20px;">ENABLE ALERTS</button>
+
     <h1>Daily Briefing</h1>
 
     <div class="controls">
@@ -96,5 +98,50 @@
         // Load default on start
         loadNews('Artificial Intelligence');
     </script>
+<script>
+    // Register the Service Worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(err => console.error(err));
+    }
+
+    // The Magic Function to Ask Permission
+    async function subscribe() {
+        console.log("Registering for push...");
+        const register = await navigator.serviceWorker.register('/sw.js', {
+            scope: '/'
+        });
+
+        console.log("Asking for permission...");
+        // This MUST match the Public Key in server.js
+        const publicVapidKey = 'BCQ227xykhxU4uQAb0EIEnrMMEzqGL6aUW925qfdLArQFSNxnqf6fn4lSl98xzb0vKHSSwJcgfkkfyRF0BTHhs0'; 
+
+        const subscription = await register.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+        });
+
+        console.log("Sending subscription to server...");
+        await fetch('/subscribe', {
+            method: 'POST',
+            body: JSON.stringify(subscription),
+            headers: {
+                'content-type': 'application/json'
+            }
+        });
+        alert("Notifications Enabled!");
+    }
+
+    // Helper function to convert key
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+</script>
 </body>
 </html>

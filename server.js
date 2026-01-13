@@ -1,31 +1,58 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
+const webPush = require('web-push');
+const bodyParser = require('body-parser'); // Needed for receiving subscriptions
 const xml2js = require('xml2js');
+
 const app = express();
 const PORT = 3000;
 
 app.use(cors());
-app.use(express.static('public')); // Serves the frontend
+app.use(bodyParser.json());
+app.use(express.static('public'));
 
 // --- CONFIGURATION ---
-const API_KEYS = {
-    NEWS_API: 'd119f7b08a714c23a5e3574fc0f3f779', 
-    // NCBI Key is optional but recommended for speed. Leave blank if you don't have one yet.
-    NCBI_KEY: '' 
-};
+// PASTE YOUR KEYS FROM STEP 1 HERE
+const publicVapidKey = 'BCQ227xykhxU4uQAb0EIEnrMMEzqGL6aUW925qfdLArQFSNxnqf6fn4lSl98xzb0vKHSSwJcgfkkfyRF0BTHhs0';
+const privateVapidKey = 'IhYOMe-pnDAr2Vft0LrtnZHUydcZQjMOveGX-1Dsj_c';
 
-// Your "Allowlist" of Free Reputable Sources
-const NEWS_SOURCES = 'bbc-news,reuters,al-jazeera-english,ars-technica,the-verge,politico';
+// Identify yourself to the push service (use your email)
+webPush.setVapidDetails('mailto:test@test.com', publicVapidKey, privateVapidKey);
 
-// --- ROUTE 1: GET GENERAL NEWS ---
+const NEWS_API_KEY = process.env.NEWS_API || 'YOUR_NEWS_API_KEY_HERE'; // Keeps Render key working
+
+// Store users (In a real app, this goes in a database. For now, we store in memory)
+let subscriptions = []; 
+
+// --- ROUTE 1: SUBSCRIBE USER ---
+app.post('/subscribe', (req, res) => {
+  const subscription = req.body;
+  subscriptions.push(subscription);
+  console.log("New User Subscribed!");
+  res.status(201).json({});
+});
+
+// --- ROUTE 2: SEND NOTIFICATION (Test Trigger) ---
+// You can visit https://your-app.onrender.com/trigger-push to test it
+app.get('/trigger-push', (req, res) => {
+  const payload = JSON.stringify({ title: 'News Alert', body: 'New articles found matching your directives!' });
+
+  subscriptions.forEach(sub => {
+    webPush.sendNotification(sub, payload).catch(error => console.error(error));
+  });
+  
+  res.json({ message: "Notifications sent!" });
+});
+
+// --- ROUTE 3: NEWS FETCH ---
+const NEWS_SOURCES = 'bbc-news,reuters,al-jazeera-english,ars-technica,the-verge';
+
 app.get('/api/news', async (req, res) => {
-    const category = req.query.category || 'technology'; // Default to tech
+    const category = req.query.category || 'technology';
     try {
-        const url = `https://newsapi.org/v2/everything?q=${category}&sources=${NEWS_SOURCES}&language=en&sortBy=publishedAt&apiKey=${API_KEYS.NEWS_API}`;
+        const url = `https://newsapi.org/v2/everything?q=${category}&sources=${NEWS_SOURCES}&language=en&sortBy=publishedAt&apiKey=${NEWS_API_KEY}`;
         const response = await axios.get(url);
-        
-        // Filter: Must have image and description
         const articles = response.data.articles.filter(a => a.urlToImage && a.description).slice(0, 10);
         res.json(articles);
     } catch (error) {
@@ -34,56 +61,6 @@ app.get('/api/news', async (req, res) => {
     }
 });
 
-// --- ROUTE 2: GET MEDICAL DIRECTIVES (NLM/PubMed) ---
-app.get('/api/medical', async (req, res) => {
-    const keyword = req.query.keyword; 
-    const frequency = req.query.frequency || '30'; // Days back
-    
-    // NLM API URLs
-    const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
-    
-    // 1. Search for IDs (Free Full Text ONLY)
-    const term = `${keyword} AND "free full text"[sb]`;
-    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${term}&reldate=${frequency}&datetype=pdat&retmode=json${API_KEYS.NCBI_KEY ? `&api_key=${API_KEYS.NCBI_KEY}` : ''}`;
-
-    try {
-        const searchResp = await axios.get(searchUrl);
-        const ids = searchResp.data.esearchresult.idlist;
-
-        if (!ids || ids.length === 0) return res.json([]);
-
-        // 2. Fetch Details for top 3
-        const fetchIds = ids.slice(0, 3).join(',');
-        const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${fetchIds}&retmode=xml${API_KEYS.NCBI_KEY ? `&api_key=${API_KEYS.NCBI_KEY}` : ''}`;
-        const fetchResp = await axios.get(fetchUrl);
-
-        // Parse XML
-        const parser = new xml2js.Parser();
-        const result = await parser.parseStringPromise(fetchResp.data);
-
-        // Format for App
-        const papers = result.PubmedArticleSet.PubmedArticle.map(art => {
-            const citation = art.MedlineCitation[0];
-            const pmid = citation.PMID[0]._;
-            const title = citation.Article[0].ArticleTitle[0];
-            
-            // Construct Link to PubMed Central (Free version)
-            return {
-                title: title,
-                source: "National Library of Medicine",
-                url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
-                isMedical: true // Flag for frontend styling
-            };
-        });
-
-        res.json(papers);
-
-    } catch (error) {
-        console.error("NLM Error:", error);
-        res.json([]); // Return empty on error to keep app running
-    }
-});
-
 app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`Server started on port ${PORT}`);
 });
