@@ -1,24 +1,17 @@
-self.addEventListener('push', function(event) {
-  const data = event.data.json();
-  
-  const options = {
-    body: data.body,
-    icon: '/icon.png', // We can add an icon later
-    vibrate: [100, 50, 100],
-    data: {
-      dateOfArrival: Date.now(),
-      primaryKey: '2'
-    }
-  };
+console.log('Service Worker Loaded');
 
-  event.waitUntil(
-    self.registration.showNotification(data.title, options)
-  );
+self.addEventListener('push', event => {
+  const data = event.data.json();
+  console.log('Push Received', data);
+
+  self.registration.showNotification(data.title, {
+    body: data.body,
+    icon: 'https://cdn-icons-png.flaticon.com/512/254/254638.png' // A simple news icon
+  });
 });
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
-  // When you click the notification, open the app
   event.waitUntil(
     clients.openWindow('/')
   );
