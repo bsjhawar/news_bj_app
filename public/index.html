@@ -98,6 +98,9 @@ function renderCards(articles) {
                 container.innerHTML += html;
             });
         }
+    // START THE APP (Load the Briefing)
+    loadNews('Briefing');
+        
     // The Magic Function to Ask Permission
     async function subscribe() {
         console.log("Registering for push...");
