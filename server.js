@@ -61,6 +61,24 @@ app.get('/api/news', async (req, res) => {
     }
 });
 
+// Fake database of news to simulate updates
+const newsDatabase = [
+    [
+        { title: "AI Breakthrough", source: "TechCrunch", summary: "New model achieves 99% accuracy in medical diagnosis." },
+        { title: "SpaceX Launch", source: "NASA", summary: "Starship successfully lands on Mars surface simulation." }
+    ],
+    [
+        { title: "Market Rally", source: "Bloomberg", summary: "Stocks hit all-time high amidst inflation cooling." },
+        { title: "New EV Battery", source: "Wired", summary: "Toyota announces solid-state battery with 1000km range." }
+    ]
+];
+
+app.get('/news', (req, res) => {
+    // Pick a random set of news to make it look like "fresh" content
+    const randomSet = newsDatabase[Math.floor(Math.random() * newsDatabase.length)];
+    res.json(randomSet);
+});
+
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running at http://0.0.0.0:${PORT}`);
 });
