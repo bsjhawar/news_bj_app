@@ -7,35 +7,48 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>My Intel</title>
     <style>
-        :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --accent: #0A84FF; }
+        :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --accent: #0A84FF; --save: #ffd700; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; padding-bottom: 80px;}
         
-        h1 { font-size: 24px; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .section-title { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-top: 30px; margin-bottom: 10px; }
+        h1 { font-size: 24px; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Navigation & Controls */
+        .top-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+        .controls { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; }
+        
+        /* Buttons */
+        button { background: #333; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+        button.active { background: var(--accent); }
+        button.saved-btn { background: var(--save); color: black; }
 
         /* Card Style */
-        .card { background: var(--card); border-radius: 12px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.1s; }
-        .card:active { transform: scale(0.98); }
+        .card { background: var(--card); border-radius: 12px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); position: relative; display: block; text-decoration: none; color: inherit; }
         .card img { width: 100%; height: 200px; object-fit: cover; }
         .card-content { padding: 15px; }
-        .source-tag { font-size: 10px; background: #333; padding: 4px 8px; border-radius: 4px; color: #aaa; text-transform: uppercase; }
-        .medical-tag { background: #2d5a2d; color: #aaffaa; } 
-        h2 { font-size: 18px; margin: 10px 0; line-height: 1.3; }
-        p { font-size: 14px; color: #aaa; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         
-        /* Directives Input */
-        .controls { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; }
-        button { background: #333; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: 600; white-space: nowrap; }
-        button.active { background: var(--accent); }
+        /* Tags */
+        .source-tag { font-size: 10px; background: #333; padding: 4px 8px; border-radius: 4px; color: #aaa; text-transform: uppercase; }
+        .medical-tag { background: #2d5a2d; color: #aaffaa; }
+        
+        /* The Checkbox Style */
+        .save-wrapper { position: absolute; top: 10px; right: 10px; z-index: 10; background: rgba(0,0,0,0.6); border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; }
+        input[type="checkbox"] { transform: scale(1.5); cursor: pointer; }
+
+        h2 { font-size: 18px; margin: 10px 0; line-height: 1.3; }
+        p { font-size: 14px; color: #aaa; }
     </style>
 </head>
 <body>
 
-<button onclick="subscribe()" style="background:red; width:100%; margin-bottom:20px;">ENABLE ALERTS</button>
+    <div class="top-bar">
+        <button onclick="subscribe()" style="background: #b91c1c; flex-grow: 1;">ENABLE ALERTS</button>
+        <button onclick="loadSavedArticles()" class="saved-btn">⭐ My Articles</button>
+    </div>
 
     <h1>Daily Briefing</h1>
 
     <div class="controls">
+        <button onclick="loadNews('Briefing')">Morning Brief</button>
         <button onclick="loadNews('AI')">Tech: AI</button>
         <button onclick="loadNews('Space')">Tech: Space</button>
         <button onclick="loadNews('Politics')">World</button>
@@ -44,101 +57,139 @@
     </div>
 
     <div id="feed">
-        <p style="text-align:center; margin-top:50px; color:#555;">Select a category above...</p>
+        <p style="text-align:center; margin-top:50px; color:#555;">Loading Intel...</p>
     </div>
 
     <script>
+        // --- MEMORY SYSTEM (LocalStorage) ---
+        function getSaved() {
+            return JSON.parse(localStorage.getItem('mySavedArticles')) || [];
+        }
+
+        function toggleSave(articleTitle, articleDataEncoded, checkbox) {
+            let saved = getSaved();
+            // Decode the URI encoded JSON string back to an object
+            const articleData = JSON.parse(decodeURIComponent(articleDataEncoded));
+
+            if (checkbox.checked) {
+                // Add to list if not already there
+                if (!saved.some(a => a.title === articleTitle)) {
+                    saved.push(articleData);
+                }
+            } else {
+                // Remove from list
+                saved = saved.filter(a => a.title !== articleTitle);
+            }
+            localStorage.setItem('mySavedArticles', JSON.stringify(saved));
+        }
+
+        function loadSavedArticles() {
+            const saved = getSaved();
+            document.querySelector('h1').innerText = "⭐ My Saved Articles";
+            
+            if (saved.length === 0) {
+                document.getElementById('feed').innerHTML = '<p style="text-align:center; padding:20px;">No saved articles yet. Check the box on a card to save it!</p>';
+            } else {
+                renderCards(saved);
+            }
+        }
+
+        // --- NEWS LOADING SYSTEM ---
         async function loadNews(keyword) {
-            document.getElementById('feed').innerHTML = '<p style="text-align:center; padding:20px;">Scouring sources...</p>';
+            document.querySelector('h1').innerText = keyword === 'Briefing' ? 'Daily Briefing' : keyword;
+            document.getElementById('feed').innerHTML = '<p style="text-align:center; padding:20px;">Accessing Database...</p>';
             
-            const response = await fetch(`/api/news?category=${keyword}`);
-            const data = await response.json();
-            renderCards(data);
+            const endpoint = (keyword === 'Neurology' || keyword === 'Immunotherapy') ? '/api/medical' : '/api/news';
+            const param = (keyword === 'Neurology' || keyword === 'Immunotherapy') ? 'keyword' : 'category';
+
+            try {
+                const response = await fetch(`${endpoint}?${param}=${keyword}`);
+                const data = await response.json();
+                renderCards(data);
+            } catch (err) {
+                console.error(err);
+                document.getElementById('feed').innerHTML = '<p>Error loading feed.</p>';
+            }
         }
 
-        async function loadMedical(keyword) {
-            document.getElementById('feed').innerHTML = '<p style="text-align:center; padding:20px;">Accessing NLM Database...</p>';
-            
-            const response = await fetch(`/api/medical?keyword=${keyword}`);
-            const data = await response.json();
-            renderCards(data);
-        }
-
-function renderCards(articles) {
+        function renderCards(articles) {
             const container = document.getElementById('feed');
             container.innerHTML = '';
+            const savedList = getSaved();
 
             if(articles.length === 0) {
-                container.innerHTML = '<p>No recent free articles found.</p>';
+                container.innerHTML = '<p>No articles found.</p>';
                 return;
             }
 
             articles.forEach(art => {
                 const isMedical = art.isMedical;
-                // Use a generic DNA image for medical papers if no image exists
+                const isSaved = savedList.some(s => s.title === art.title);
+
+                // Prepare data to be stored in the checkbox function (We must encode it to be safe in HTML)
+                const safeData = encodeURIComponent(JSON.stringify(art));
+
                 const imageHtml = isMedical 
                     ? `<div style="height:100px; background:#1e3a1e; display:flex; align-items:center; justify-content:center; color:#4caf50; font-weight:bold; letter-spacing:2px;">NLM RESEARCH</div>`
                     : `<img src="${art.urlToImage}" alt="News Image">`;
 
                 const tagClass = isMedical ? 'source-tag medical-tag' : 'source-tag';
-
-                // CHANGE: We now use an <a> tag instead of a <div> with onclick
-                // We also check if the URL is '#' and warn the user
                 const finalUrl = art.url === '#' ? 'https://google.com/search?q=' + encodeURIComponent(art.title) : art.url;
 
                 const html = `
-                <a href="${finalUrl}" target="_blank" class="card" style="display:block; text-decoration:none; color:inherit; cursor:pointer;">
-                    ${imageHtml}
-                    <div class="card-content">
-                        <span class="${tagClass}">${art.source.name || art.source}</span>
-                        <h2>${art.title}</h2>
-                        ${art.description ? `<p>${art.description}</p>` : ''}
+                <div style="position:relative;">
+                    <div class="save-wrapper">
+                        <input type="checkbox" 
+                            ${isSaved ? 'checked' : ''} 
+                            onchange="toggleSave('${art.title.replace(/'/g, "\\'")}', '${safeData}', this)"
+                        >
                     </div>
-                </a>`;
+                    <a href="${finalUrl}" target="_blank" class="card">
+                        ${imageHtml}
+                        <div class="card-content">
+                            <span class="${tagClass}">${art.source.name || art.source}</span>
+                            <h2>${art.title}</h2>
+                            ${art.description ? `<p>${art.description}</p>` : ''}
+                        </div>
+                    </a>
+                </div>`;
                 container.innerHTML += html;
             });
         }
-    // START THE APP (Load the Briefing)
-    loadNews('Briefing');
-        
-    // The Magic Function to Ask Permission
-    async function subscribe() {
-        console.log("Registering for push...");
-        const register = await navigator.serviceWorker.register('/sw.js', {
-            scope: '/'
-        });
 
-        console.log("Asking for permission...");
-        // This MUST match the Public Key in server.js
-        const publicVapidKey = 'BCQ227xykhxU4uQAb0EIEnrMMEzqGL6aUW925qfdLArQFSNxnqf6fn4lSl98xzb0vKHSSwJcgfkkfyRF0BTHhs0'; 
+        // START APP
+        loadNews('Briefing');
 
-        const subscription = await register.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
-        });
-
-        console.log("Sending subscription to server...");
-        await fetch('/subscribe', {
-            method: 'POST',
-            body: JSON.stringify(subscription),
-            headers: {
-                'content-type': 'application/json'
-            }
-        });
-        alert("Notifications Enabled!");
-    }
-
-    // Helper function to convert key
-    function urlBase64ToUint8Array(base64String) {
-        const padding = '='.repeat((4 - base64String.length % 4) % 4);
-        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-        const rawData = window.atob(base64);
-        const outputArray = new Uint8Array(rawData.length);
-        for (let i = 0; i < rawData.length; ++i) {
-            outputArray[i] = rawData.charCodeAt(i);
+        // --- PUSH NOTIFICATION LOGIC ---
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(err => console.error(err));
         }
-        return outputArray;
-    }
-</script>
+
+        async function subscribe() {
+            const register = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+            const publicVapidKey = 'BCQ227xykhxU4uQAb0EIEnrMMEzqGL6aUW925qfdLArQFSNxnqf6fn4lSl98xzb0vKHSSwJcgfkkfyRF0BTHhs0'; 
+            const subscription = await register.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+            });
+            await fetch('/subscribe', {
+                method: 'POST',
+                body: JSON.stringify(subscription),
+                headers: { 'content-type': 'application/json' }
+            });
+            alert("Notifications Enabled!");
+        }
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+    </script>
 </body>
 </html>
