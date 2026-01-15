@@ -36,10 +36,24 @@ const mockMedical = {
 };
 
 // --- ROUTES ---
+// 3. GET NEWS Route (Handles "Tech" buttons AND the "Briefing")
 app.get('/api/news', (req, res) => {
-    const category = req.query.category || 'AI';
-    // Fallback to AI if category doesn't exist
-    const data = mockNews[category] || mockNews['AI']; 
+    const category = req.query.category || 'Briefing'; // Default to Briefing
+
+    if (category === 'Briefing') {
+        // Combine 1 top story from every category
+        const brief = [
+            mockNews['AI'][0],
+            mockNews['Space'][0],
+            mockNews['Politics'][0],
+            mockMedical['Neurology'][0],
+            mockMedical['Immunotherapy'][0]
+        ];
+        return res.json(brief);
+    }
+
+    // Standard behavior for specific buttons
+    const data = mockNews[category] || mockNews['AI'];
     res.json(data);
 });
 
