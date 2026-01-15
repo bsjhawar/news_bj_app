@@ -64,7 +64,7 @@
             renderCards(data);
         }
 
-        function renderCards(articles) {
+function renderCards(articles) {
             const container = document.getElementById('feed');
             container.innerHTML = '';
 
@@ -82,28 +82,22 @@
 
                 const tagClass = isMedical ? 'source-tag medical-tag' : 'source-tag';
 
+                // CHANGE: We now use an <a> tag instead of a <div> with onclick
+                // We also check if the URL is '#' and warn the user
+                const finalUrl = art.url === '#' ? 'https://google.com/search?q=' + encodeURIComponent(art.title) : art.url;
+
                 const html = `
-                <div class="card" onclick="window.open('${art.url}', '_blank')">
+                <a href="${finalUrl}" target="_blank" class="card" style="display:block; text-decoration:none; color:inherit; cursor:pointer;">
                     ${imageHtml}
                     <div class="card-content">
                         <span class="${tagClass}">${art.source.name || art.source}</span>
                         <h2>${art.title}</h2>
                         ${art.description ? `<p>${art.description}</p>` : ''}
                     </div>
-                </div>`;
+                </a>`;
                 container.innerHTML += html;
             });
         }
-
-        // Load default on start
-        loadNews('Artificial Intelligence');
-    </script>
-<script>
-    // Register the Service Worker
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js').catch(err => console.error(err));
-    }
-
     // The Magic Function to Ask Permission
     async function subscribe() {
         console.log("Registering for push...");
